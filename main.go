@@ -1,25 +1,41 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/jamespearly/loggly"
 	"github.com/tomasen/realip"
 )
 
-func getTime(w http.ResponseWriter, r *http.Request) {
-	now := time.Now().Format("01-02-2006 3:4:5 PM")
+// End Point Functions
 
-	Time, _ := json.Marshal(now)
-
-	w.Header().Set("Content-Type", "application/json")
+// Returns the status of the server
+func status(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write(Time)
+	//get write TableName to response JSON.
+	w.Write([]byte("Status"))
+}
+
+// Returns all the data in the table
+func getAll(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	//get data from DynamoDB
+
+	// Write DynamoDB data to response JSON.
+	w.Write([]byte("All"))
+}
+
+func search(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	//get qurry
+
+	//get data from DynamoDB
+
+	// Write DynamoDB data to response JSON.
+	w.Write([]byte("Search"))
 }
 
 type statusResponseWriter struct {
@@ -44,7 +60,7 @@ func RequestLoggerMiddleware(r *mux.Router, logger *loggly.ClientType) mux.Middl
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			sw := NewStatusResponseWriter(w)
 			defer func() {
-				message := fmt.Sprintf("[%s] %s %s [%d] %s \nip: %s",
+				message := fmt.Sprintf("[%s] [%s] [%s] [%d] [%s] %s",
 					req.Method,
 					req.Host,
 					req.URL.Path,
@@ -61,7 +77,9 @@ func RequestLoggerMiddleware(r *mux.Router, logger *loggly.ClientType) mux.Middl
 func main() {
 	router := mux.NewRouter()
 	logger := loggly.New("mmahone5")
-	router.HandleFunc("/mmahone5/status", getTime)
+	router.HandleFunc("/mmahone5/status", status)
+	router.HandleFunc("/mmahone5/search", search)
+	router.HandleFunc("/mmahone5/all", getAll)
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("404 Not Found"))
