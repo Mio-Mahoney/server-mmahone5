@@ -1,41 +1,123 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
 	"github.com/jamespearly/loggly"
 	"github.com/tomasen/realip"
 )
 
-// End Point Functions
+// Global Variables
+var tableName = "mmahone5_test"
+var svc *dynamodb.Client
 
+type invalidQuery struct {
+	Error   int32  `json:"error"`
+	Message string `json:"message"`
+}
+
+// End Point Functions
 // Returns the status of the server
 func status(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
 	//get write TableName to response JSON.
-	w.Write([]byte("Status"))
+
+	res, err := svc.Scan(context.TODO(), &dynamodb.ScanInput{TableName: aws.String(tableName),
+		Select: "COUNT",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	recordCount := res.ScannedCount //Get Record count
+	rjson := map[string]string{"Table Name": tableName, "RecordCount": fmt.Sprint(recordCount)}
+
+	daJson, _ := json.Marshal(rjson)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	w.Write(daJson)
+
 }
 
 // Returns all the data in the table
 func getAll(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
 	//get data from DynamoDB
-
 	// Write DynamoDB data to response JSON.
-	w.Write([]byte("All"))
+	res, err := svc.Scan(context.TODO(), &dynamodb.ScanInput{TableName: aws.String(tableName)})
+	if err != nil {
+		panic(err)
+	}
+
+	resJ, _ := json.Marshal(res.Items)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resJ)
 }
 
 func search(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
 	//get qurry
+	q := r.URL.Query().Get("q")
+	fmt.Print(q)
+	possibleInputs := []string{"SNOW_BLOCK", "SNOW_BALL", "ENCHANTED_SNOW_BLOCK"}
 
-	//get data from DynamoDB
+	//santize query
+	resultFound := false
+	for _, input := range possibleInputs {
+		if strings.EqualFold(q, input) { // Case-insensitive comparison
+			resultFound = true
+			break
+		}
+	}
 
-	// Write DynamoDB data to response JSON.
-	w.Write([]byte("Search"))
+	if !resultFound {
+		invalidQueryJ, _ := json.Marshal(invalidQuery{Error: 400, Message: "Invalid Query"})
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(invalidQueryJ)
+		return
+	}
+
+	input := &dynamodb.ScanInput{
+		TableName:        aws.String(tableName),
+		FilterExpression: aws.String("attribute_exists(Products.#productKey)"),
+		ExpressionAttributeNames: map[string]string{
+			"#productKey": q,
+		},
+	}
+
+	res, err := svc.Scan(context.TODO(), input)
+	if err != nil {
+		fmt.Printf("Failed to scan items: %v", err)
+		invalidScanJ, _ := json.Marshal(invalidQuery{Error: http.StatusInternalServerError, Message: "Failed to scan items"})
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(invalidScanJ)
+		return
+	}
+
+	var filteredResults []map[string]interface{}
+	for _, item := range res.Items {
+		if productInfo, ok := item["Products"].(*types.AttributeValueMemberM).Value[q]; ok {
+			// Extract the specific product info
+			filteredResults = append(filteredResults, map[string]interface{}{
+				"product": productInfo.(*types.AttributeValueMemberM).Value,
+			})
+		}
+	}
+
+	resJ, _ := json.Marshal(filteredResults)
+	w.WriteHeader(http.StatusOK)
+
+	w.Write(resJ)
 }
 
 type statusResponseWriter struct {
@@ -75,6 +157,17 @@ func RequestLoggerMiddleware(r *mux.Router, logger *loggly.ClientType) mux.Middl
 }
 
 func main() {
+	//AWS Config
+	cfg, err := config.LoadDefaultConfig(context.TODO(), func(o *config.LoadOptions) error {
+		o.Region = "us-east-1"
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	svc = dynamodb.NewFromConfig(cfg)
+
+	// Create a new router
 	router := mux.NewRouter()
 	logger := loggly.New("mmahone5")
 	router.HandleFunc("/mmahone5/status", status)
