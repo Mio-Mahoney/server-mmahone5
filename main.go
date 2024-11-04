@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -74,7 +73,7 @@ func search(w http.ResponseWriter, r *http.Request) {
 	//santize query
 	resultFound := false
 	for _, input := range possibleInputs {
-		if strings.EqualFold(q, input) { // Case-insensitive comparison
+		if q == input { // Case-sensitive comparison
 			resultFound = true
 			break
 		}

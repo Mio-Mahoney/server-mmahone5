@@ -5,13 +5,13 @@ go 1.21
 toolchain go1.23.2
 
 require (
+	github.com/aws/aws-sdk-go-v2 v1.32.3
 	github.com/gorilla/mux v1.8.1
 	github.com/jamespearly/loggly v0.0.0-20220929110912-1d839b0715fa
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 )
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.32.3 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.42 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.22 // indirect
