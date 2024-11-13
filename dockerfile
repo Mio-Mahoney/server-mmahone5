@@ -11,7 +11,7 @@ RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o main .
 
 # Use Alpine to extract CA certificates
-FROM alpine:latest AS certs
+FROM public.ecr.aws/docker/library/alpine:edge AS certs
 RUN apk --no-cache add ca-certificates
 
 # Final stage using scratch
