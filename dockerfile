@@ -16,7 +16,6 @@ RUN apk --no-cache add ca-certificates
 
 # Final stage using scratch
 FROM scratch
-
 # Copy CA certificates from the certs stage
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
